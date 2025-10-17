@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bachelor Mess Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { font-family: 'Roboto', sans-serif; background:#0b1020; color:#e6eef8; padding:24px; }
+.glass { background: rgba(255,255,255,0.02); backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.04); border-radius:1rem; padding:1rem; overflow-x:auto; margin-bottom:1.5rem;}
+.tiny { font-size:0.8rem; color:#94a3b8; }
+.badge { background: rgba(124,58,237,0.12); color:#7c3aed; padding:4px 8px; border-radius:999px; font-weight:600; font-size:0.85rem; }
+.btn { padding:6px 10px; border-radius:10px; font-weight:600; cursor:pointer; }
+input[type=number], input[type=password]{ padding:6px; border-radius:6px; background:#1a1f2e; border:1px solid #333; color:#e6eef8; text-align:center;}
+table{ border-collapse:collapse; margin-top:8px; }
+th, td{ border:1px solid rgba(255,255,255,0.1); text-align:center; padding:4px; min-width:50px; }
+th{ background:rgba(255,255,255,0.05); }
+.expense-input{ width:200px; } 
+.meal-input{ width:50px; } 
+.other-input{ width:80px; }
+.modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:50; }
+.modal { background:#1a1f2e; padding:2rem; border-radius:1rem; text-align:center; width:320px; }
+</style>
+</head>
+<body>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal-bg">
+  <div class="modal">
+    <h2 class="text-xl font-semibold mb-2">Login</h2>
+    <p class="tiny mb-2">Select Role and enter password</p>
+    <select id="roleSelect" class="mb-2 w-full p-2 rounded bg-gray-800 text-white">
+      <option value="manager">Manager (Kazi Rabbi)</option>
+      <option value="member">Member</option>
+    </select><br>
+    <input type="password" id="loginPassword" placeholder="Password" class="mb-4 w-full"><br>
+    <button id="loginBtn" class="btn bg-indigo-700 text-white w-full">Login</button>
+    <p class="tiny mt-4">Payment (Bkash/Nagad): <strong>01884166247</strong></p>
+  </div>
+</div>
+
+<main id="mainContent" class="max-w-7xl mx-auto hidden">
+  <div class="glass shadow-lg">
+    <header class="flex justify-between items-start gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-semibold">Bachelor Mess Manager</h1>
+        <p class="tiny mt-1">Payment (Bkash/Nagad): <strong>01884166247</strong></p>
+      </div>
+      <div class="text-right flex flex-col items-end gap-2">
+        <div class="tiny">Total Expense</div>
+        <div id="totalExpense" class="text-lg md:text-xl font-semibold">0.00 ৳</div>
+        <div class="tiny mt-1">Total Meals</div>
+        <div id="totalMeals" class="font-semibold">0</div>
+        <div class="tiny mt-1">Meal Rate</div>
+        <div id="mealRate" class="badge mt-1">-</div>
+        <button id="logoutBtn" class="btn bg-red-700 mt-2 w-full">Logout</button>
+      </div>
+    </header>
+
+    <nav class="mt-6 flex gap-2 flex-wrap">
+      <button class="tab-btn btn bg-indigo-700 text-white" data-tab="expenses">Per-person Expense</button>
+      <button class="tab-btn btn bg-gray-800 text-white/80" data-tab="meals">Meal Record</button>
+      <button class="tab-btn btn bg-gray-800 text-white/80" data-tab="others">Others</button>
+    </nav>
+
+    <section id="content" class="mt-6"></section>
+  </div>
+</main>
+
+<script>
+const users={"Kazi Rabbi":"manager123","Munnat":"munnatpwd","Rakib":"rakibpwd","Ramim":"ramimpwd","Dip":"dippwd","Fozle Rabby":"fozlepwd","Noyon":"noyonpwd"};
+let currentRole=null,currentUser=null;
+const members=["Munnat","Rakib","Ramim","Dip","Kazi Rabbi","Fozle Rabby","Noyon"];
+const fees=["Rent Fee","Gas","Current","Internet","Meal Fee","Previous Fee","Extra"];
+let expenses={},meals={},othersData={};
+members.forEach(m=>{expenses[m]=0;meals[m]=Array(31).fill(0);othersData[m]={};fees.forEach(f=>othersData[m][f]=0);});
+
+// LOGIN
+document.getElementById("loginBtn").addEventListener("click",()=>{
+  const role=document.getElementById("roleSelect").value;
+  const password=document.getElementById("loginPassword").value;
+  let valid=false;
+  if(role==="manager" && password===users["Kazi Rabbi"]){valid=true; currentRole="manager"; currentUser="Kazi Rabbi";}
+  else if(role==="member"){for(let u in users){if(u!=="Kazi Rabbi" && password===users[u]){valid=true; currentRole="member"; currentUser=u; break;}}}
+  if(valid){document.getElementById("loginModal").style.display="none"; document.getElementById("mainContent").classList.remove("hidden"); setActiveTab('expenses');}
+  else alert("Wrong password!");
+});
+
+// LOGOUT
+document.getElementById("logoutBtn").addEventListener("click",()=>{
+  currentRole=null; currentUser=null;
+  document.getElementById("mainContent").classList.add("hidden");
+  document.getElementById("loginModal").style.display="flex";
+});
+
+// Tabs
+let activeTab='expenses';
+function setActiveTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>{if(b.dataset.tab===tab){b.classList.replace('bg-gray-800','bg-indigo-700'); b.classList.replace('text-white/80','text-white');} else{b.classList.replace('bg-indigo-700','bg-gray-800'); b.classList.replace('text-white','text-white/80');}});
+  renderTab();
+}
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>setActiveTab(b.dataset.tab)));
+function $(s){return document.querySelector(s);}
+function renderTab(){const content=$('#content'); content.innerHTML=''; if(activeTab==='expenses') renderExpenses(); else if(activeTab==='meals') renderMeals(); else renderOthers();}
+function updateTotals(){const totalExpense=Object.values(expenses).reduce((a,b)=>a+Number(b||0),0); let totalMeals=0; members.forEach(m=>{totalMeals+=meals[m].reduce((a,b)=>a+Number(b||0),0);}); $('#totalExpense').textContent=totalExpense.toFixed(2)+' ৳'; $('#totalMeals').textContent=totalMeals; $('#mealRate').textContent=totalMeals?(totalExpense/totalMeals).toFixed(2)+' ৳/meal':'-';}
+
+// Expenses
+function renderExpenses(){
+  const container=document.createElement('div');
+  container.innerHTML=`<h2 class="text-xl font-semibold">Per-person Expense</h2><div class="mt-4 glass overflow-auto"><table><thead><tr><th>Member</th><th>Expense (৳)</th></tr></thead><tbody id="expenseBody"></tbody></table></div>`;
+  $('#content').appendChild(container);
+  const tbody=$('#expenseBody');
+  members.forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m}</td><td><input class="expense-input" type="number" min="0" value="${expenses[m]}" ${currentRole==="manager"?"":"disabled"} data-member="${m}"></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{inp.addEventListener('input',()=>{expenses[inp.dataset.member]=Number(inp.value)||0; updateTotals();});});
+  updateTotals();
+}
+
+// Meals
+function renderMeals(){
+  const container=document.createElement('div');
+  container.innerHTML=`<h2 class="text-xl font-semibold">31-day Meal Record</h2><div class="mt-4 glass overflow-auto"><table><thead><tr><th>Member</th>${Array.from({length:31},(_,i)=>`<th>${i+1}</th>`).join('')}<th>Total</th></tr></thead><tbody id="mealBody"></tbody></table></div>`;
+  $('#content').appendChild(container);
+  const tbody=$('#mealBody');
+  members.forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m}</td>`+meals[m].map((v,i)=>`<td><input class="meal-input" type="number" min="0" value="${v}" ${currentRole==="manager"?"":"disabled"} data-member="${m}" data-day="${i}"></td>`).join('')+`<td class="rowTotal">0</td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{inp.addEventListener('input',()=>{meals[inp.dataset.member][inp.dataset.day]=Number(inp.value)||0; updateMealTotals();});});
+  updateMealTotals();
+}
+function updateMealTotals(){
+  let totalMeals=0;
+  document.querySelectorAll('#mealBody tr').forEach(tr=>{
+    let sum=0;
+    tr.querySelectorAll('input').forEach(inp=>{sum+=Number(inp.value)||0;});
+    tr.querySelector('.rowTotal').textContent=sum;
+    totalMeals+=sum;
+  });
+  $('#totalMeals').textContent=totalMeals;
+  const totalExpense=Object.values(expenses).reduce((a,b)=>a+Number(b||0),0);
+  $('#mealRate').textContent=totalMeals?(totalExpense/totalMeals).toFixed(2)+' ৳/meal':'-';
+}
+
+// Others
+function renderOthers(){
+  const container=document.createElement('div');
+  container.innerHTML=`<h2 class="text-xl font-semibold">Others (Fees & Extra)</h2><div class="mt-4 glass overflow-auto"><table><thead><tr><th>Member</th>${fees.map(f=>`<th>${f}</th>`).join('')}</tr></thead><tbody id="othersBody"></tbody></table></div>`;
+  $('#content').appendChild(container);
+  const tbody=$('#othersBody');
+  members.forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m}</td>`+fees.map(f=>`<td><input class="other-input" type="number" min="0" value="${othersData[m][f]}" ${currentRole==="manager"?"":"disabled"} data-member="${m}" data-fee="${f}"></td>`).join('');
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{inp.addEventListener('input',()=>{othersData[inp.dataset.member][inp.dataset.fee]=Number(inp.value)||0;});});
+}
+</script>
+</body>
+</html>
